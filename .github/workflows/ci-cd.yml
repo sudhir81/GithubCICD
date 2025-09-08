@@ -9,10 +9,6 @@ jobs:
   terraform:
     runs-on: ubuntu-latest
     env:
-      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
-      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
-      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
       VM_ADMIN_PASSWORD: ${{ secrets.VM_ADMIN_PASSWORD }}
     steps:
       - name: Checkout repo
@@ -21,13 +17,7 @@ jobs:
       - name: Login to Azure CLI
         uses: azure/login@v1
         with:
-          creds: >-
-            {
-              "clientId": "${{ secrets.ARM_CLIENT_ID }}",
-              "clientSecret": "${{ secrets.ARM_CLIENT_SECRET }}",
-              "subscriptionId": "${{ secrets.ARM_SUBSCRIPTION_ID }}",
-              "tenantId": "${{ secrets.ARM_TENANT_ID }}"
-            }
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
@@ -36,7 +26,11 @@ jobs:
 
       - name: Terraform Init (backend from secrets)
         run: |
-          terraform -chdir=terraform init             -backend-config="resource_group_name=${{ secrets.AZURE_BACKEND_RG }}"             -backend-config="storage_account_name=${{ secrets.AZURE_BACKEND_STORAGE }}"             -backend-config="container_name=${{ secrets.AZURE_BACKEND_CONTAINER }}"             -backend-config="key=prod.tfstate"
+          terraform -chdir=terraform init \
+            -backend-config="resource_group_name=${{ secrets.AZURE_BACKEND_RG }}" \
+            -backend-config="storage_account_name=${{ secrets.AZURE_BACKEND_STORAGE }}" \
+            -backend-config="container_name=${{ secrets.AZURE_BACKEND_CONTAINER }}" \
+            -backend-config="key=prod.tfstate"
 
       - name: Terraform Plan
         run: terraform -chdir=terraform plan -out=tfplan
