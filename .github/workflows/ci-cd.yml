@@ -1,50 +1,37 @@
-name: Terraform + Ansible CI/CD
+name: Terraform CI/CD
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:
+    branches:
+      - main
+  pull_request:
 
 jobs:
   terraform:
     runs-on: ubuntu-latest
-    env:
-      ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
-      ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
-      ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
-      ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
-      VM_ADMIN_PASSWORD: ${{ secrets.VM_ADMIN_PASSWORD }}
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-
-      - name: Login to Azure CLI
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.5.7
 
       - name: Terraform Init
-        run: |
-          terraform -chdir=terraform init \
-            -backend-config="resource_group_name=${{ secrets.AZURE_BACKEND_RG }}" \
-            -backend-config="storage_account_name=${{ secrets.AZURE_BACKEND_STORAGE }}" \
-            -backend-config="container_name=${{ secrets.AZURE_BACKEND_CONTAINER }}" \
-            -backend-config="key=prod.tfstate"
+        run: terraform -chdir=terraform init
 
-      # 🔑 Plan with auto-unlock + retry
+      - name: Terraform Validate
+        run: terraform -chdir=terraform validate
+
       - name: Terraform Plan (with auto-unlock)
         run: |
           set +e
           terraform -chdir=terraform plan -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}"
           EXIT_CODE=$?
           if [ $EXIT_CODE -ne 0 ]; then
-            LOCK_ID=$(terraform -chdir=terraform plan -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}" 2>&1 | grep "ID:" | awk '{print $2}' || true)
+            LOCK_ID=$(terraform -chdir=terraform plan -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}" 2>&1 | grep -A3 "Error acquiring the state lock" | grep "ID:" | awk '{print $2}')
             if [ -n "$LOCK_ID" ]; then
               echo "Found lock ID: $LOCK_ID — unlocking..."
               terraform -chdir=terraform force-unlock -force $LOCK_ID || true
@@ -57,14 +44,14 @@ jobs:
           fi
           set -e
 
-      # 🔑 Apply with auto-unlock + retry
       - name: Terraform Apply (with auto-unlock)
+        if: github.ref == 'refs/heads/main'
         run: |
           set +e
           terraform -chdir=terraform apply -auto-approve -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}"
           EXIT_CODE=$?
           if [ $EXIT_CODE -ne 0 ]; then
-            LOCK_ID=$(terraform -chdir=terraform apply -auto-approve -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}" 2>&1 | grep "ID:" | awk '{print $2}' || true)
+            LOCK_ID=$(terraform -chdir=terraform apply -auto-approve -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}" 2>&1 | grep -A3 "Error acquiring the state lock" | grep "ID:" | awk '{print $2}')
             if [ -n "$LOCK_ID" ]; then
               echo "Found lock ID: $LOCK_ID — unlocking..."
               terraform -chdir=terraform force-unlock -force $LOCK_ID || true
@@ -76,60 +63,3 @@ jobs:
             fi
           fi
           set -e
-
-      - name: Save TF outputs
-        run: terraform -chdir=terraform output -json > tf_outputs.json
-
-      - name: Upload TF outputs
-        uses: actions/upload-artifact@v4
-        with:
-          name: tf-outputs
-          path: tf_outputs.json
-
-  ansible:
-    needs: terraform
-    runs-on: ubuntu-latest
-    env:
-      VM_ADMIN_PASSWORD: ${{ secrets.VM_ADMIN_PASSWORD }}
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-
-      - name: Download TF outputs
-        uses: actions/download-artifact@v3
-        with:
-          name: tf-outputs
-          path: ansible
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y ansible jq python3-pip
-          pip3 install pywinrm
-
-      - name: Generate Ansible inventory from outputs
-        run: |
-          DCIP=$(jq -r .dc01_public_ip.value ansible/tf_outputs.json)
-          WSIP=$(jq -r .ws01_public_ip.value ansible/tf_outputs.json)
-          cat > ansible/inventory.ini <<EOF
-          [dc]
-          DC01 ansible_host=${DCIP}
-
-          [ws]
-          WS01 ansible_host=${WSIP}
-
-          [all:vars]
-          ansible_user=azureadmin
-          ansible_password=${{ secrets.VM_ADMIN_PASSWORD }}
-          ansible_connection=winrm
-          ansible_winrm_transport=basic
-          ansible_port=5985
-          EOF
-          cat ansible/inventory.ini
-
-      - name: Run DC playbook
-        run: ansible-playbook -i ansible/inventory.ini ansible/dc01.yml
-
-      - name: Run WS playbook
-        run: ansible-playbook -i ansible/inventory.ini ansible/ws01.yml
