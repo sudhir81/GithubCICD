@@ -15,6 +15,11 @@ jobs:
       ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
       VM_ADMIN_PASSWORD: ${{ secrets.VM_ADMIN_PASSWORD }}
 
+      # ✅ Backend values
+      TF_VAR_backend_rg: ${{ secrets.AZURE_BACKEND_RG }}
+      TF_VAR_backend_storage: ${{ secrets.AZURE_BACKEND_STORAGE }}
+      TF_VAR_backend_container: ${{ secrets.AZURE_BACKEND_CONTAINER }}
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -32,7 +37,6 @@ jobs:
       - name: Terraform Init
         run: terraform -chdir=terraform init
 
-      # Plan with auto-unlock logic
       - name: Terraform Plan
         run: |
           set +e
@@ -75,7 +79,7 @@ jobs:
         run: terraform -chdir=terraform output -json > tf_outputs.json
 
       - name: Upload TF outputs
-        uses: actions/upload-artifact@v4   # ✅ fixed
+        uses: actions/upload-artifact@v4
         with:
           name: tf-outputs
           path: tf_outputs.json
@@ -91,7 +95,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download TF outputs
-        uses: actions/download-artifact@v4   # ✅ fixed
+        uses: actions/download-artifact@v4
         with:
           name: tf-outputs
           path: ansible
