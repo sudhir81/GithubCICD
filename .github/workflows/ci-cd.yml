@@ -37,15 +37,22 @@ jobs:
             -backend-config="container_name=${{ secrets.AZURE_BACKEND_CONTAINER }}" \
             -backend-config="key=prod.tfstate"
 
-      # 🔑 Ensure no stale lock blocks the run
-      - name: Force Unlock if needed
-        run: terraform -chdir=terraform force-unlock -force $(date +%s) || echo "No lock to clear"
+      # 🔑 Detect and auto-unlock stale Terraform state lock
+      - name: Force Unlock if locked
+        run: |
+          LOCK_ID=$(terraform -chdir=terraform plan -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}" 2>&1 | grep "ID:" | awk '{print $2}' || true)
+          if [ -n "$LOCK_ID" ]; then
+            echo "Found lock ID: $LOCK_ID"
+            terraform -chdir=terraform force-unlock -force $LOCK_ID || true
+          else
+            echo "No lock detected"
+          fi
 
       - name: Terraform Plan
-        run: terraform -chdir=terraform plan -lock-timeout=300s -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}"
+        run: terraform -chdir=terraform plan -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}"
 
       - name: Terraform Apply
-        run: terraform -chdir=terraform apply -lock-timeout=300s -auto-approve -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}"
+        run: terraform -chdir=terraform apply -auto-approve -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}"
 
       - name: Save TF outputs
         run: terraform -chdir=terraform output -json > tf_outputs.json
