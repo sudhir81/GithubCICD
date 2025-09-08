@@ -37,8 +37,8 @@ jobs:
             -backend-config="key=prod.tfstate"
 
       - name: Terraform Plan
-        run:   terraform -chdir=terraform apply -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}" -auto-approve terraform/tfplan
-
+        run: terraform -chdir=terraform apply -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}" -auto-approve tfplan
+ 
       - name: Terraform Apply
         run: terraform -chdir=terraform apply -auto-approve tfplan
 
