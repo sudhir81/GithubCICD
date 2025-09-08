@@ -31,6 +31,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Ensure Terraform Backend Exists
+        run: |
+          az group create --name $TF_BACKEND_RESOURCE_GROUP_NAME --location eastus
+          az storage account create \
+            --name $TF_BACKEND_STORAGE_ACCOUNT_NAME \
+            --resource-group $TF_BACKEND_RESOURCE_GROUP_NAME \
+            --sku Standard_LRS \
+            --encryption-services blob
+          az storage container create \
+            --name $TF_BACKEND_CONTAINER_NAME \
+            --account-name $TF_BACKEND_STORAGE_ACCOUNT_NAME
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -57,7 +74,7 @@ jobs:
   ansible:
     name: Run Ansible Playbooks
     runs-on: ubuntu-latest
-    needs: terraform   # Run only after Terraform job finishes successfully
+    needs: terraform
 
     defaults:
       run:
