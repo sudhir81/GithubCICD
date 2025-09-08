@@ -9,14 +9,21 @@ on:
       - main
 
 env:
+  # Azure authentication
   ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
   ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
   ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
   ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
+
+  # Terraform backend
   TF_BACKEND_RESOURCE_GROUP_NAME: ${{ secrets.AZURE_BACKEND_RG }}
   TF_BACKEND_STORAGE_ACCOUNT_NAME: ${{ secrets.AZURE_BACKEND_STORAGE }}
   TF_BACKEND_CONTAINER_NAME: ${{ secrets.AZURE_BACKEND_CONTAINER }}
-  VM_ADMIN_PASSWORD: ${{ secrets.VM_ADMIN_PASSWORD }}
+
+  # Terraform variables (auto-detected)
+  TF_VAR_vm_admin_password: ${{ secrets.VM_ADMIN_PASSWORD }}
+  TF_VAR_location: eastus
+  TF_VAR_vm_size: Standard_B2ms
 
 jobs:
   terraform:
