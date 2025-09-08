@@ -159,16 +159,11 @@ resource "azurerm_virtual_machine_extension" "dc01_winrm_ext" {
   type                 = "CustomScriptExtension"
   type_handler_version = "1.10"
 
-  settings = <<SETTINGS
-    {
-      "New-NetFirewallRule -DisplayName "Allow-HTTP" -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow -Enabled True
-New-NetFirewallRule -Name "Allow-ICMPv4-In" -Protocol ICMPv4 -IcmpType Any -Action Allow -Direction Inbound -Enabled True
-
-    }
-SETTINGS
+  settings = jsonencode({
+    commandToExecute = "powershell.exe -Command \"New-NetFirewallRule -DisplayName 'Allow-HTTP' -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow -Enabled True; New-NetFirewallRule -Name 'Allow-ICMPv4-In' -Protocol ICMPv4 -IcmpType Any -Action Allow -Direction Inbound -Enabled True\""
+  })
 }
 
-# Custom Script Extension to enable WinRM and firewall rules on WS01
 resource "azurerm_virtual_machine_extension" "ws01_winrm_ext" {
   name                 = "enable-winrm-ws01"
   virtual_machine_id   = azurerm_windows_virtual_machine.ws01.id
@@ -176,12 +171,8 @@ resource "azurerm_virtual_machine_extension" "ws01_winrm_ext" {
   type                 = "CustomScriptExtension"
   type_handler_version = "1.10"
 
-  settings = <<SETTINGS
-    {
-New-NetFirewallRule -DisplayName "Allow-HTTP" -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow -Enabled True
-New-NetFirewallRule -Name "Allow-ICMPv4-In" -Protocol ICMPv4 -IcmpType Any -Action Allow -Direction Inbound -Enabled True
-
-
-    }
-SETTINGS
+  settings = jsonencode({
+    commandToExecute = "powershell.exe -Command \"New-NetFirewallRule -DisplayName 'Allow-HTTP' -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow -Enabled True; New-NetFirewallRule -Name 'Allow-ICMPv4-In' -Protocol ICMPv4 -IcmpType Any -Action Allow -Direction Inbound -Enabled True\""
+  })
 }
+
