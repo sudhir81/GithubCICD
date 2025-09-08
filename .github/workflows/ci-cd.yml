@@ -38,9 +38,9 @@ jobs:
 
       - name: Terraform Plan
         run: terraform -chdir=terraform apply -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}" -auto-approve tfplan
- 
+          
       - name: Terraform Apply
-        run: terraform -chdir=terraform apply -auto-approve tfplan
+        run: terraform -chdir=terraform apply -auto-approve -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}"
 
       - name: Save TF outputs
         run: terraform -chdir=terraform output -json > tf_outputs.json
