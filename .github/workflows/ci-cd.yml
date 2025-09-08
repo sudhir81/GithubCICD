@@ -29,6 +29,17 @@ jobs:
         with:
           terraform_version: 1.5.7
 
+      # 🔓 Force unlock if state is locked
+      - name: Force Unlock Terraform State (if needed)
+        run: |
+          LOCK_ID=$(terraform -chdir=terraform plan -detailed-exitcode -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}" 2>&1 | grep -oP 'ID:\s+\K[0-9a-f-]+' | head -1 || true)
+          if [ ! -z "$LOCK_ID" ]; then
+            echo "⚠️ State lock detected: $LOCK_ID. Unlocking..."
+            terraform -chdir=terraform force-unlock -force $LOCK_ID
+          else
+            echo "✅ No Terraform state lock found."
+          fi
+
       - name: Terraform Init
         run: |
           terraform -chdir=terraform init \
@@ -54,6 +65,7 @@ jobs:
 
   ansible:
     needs: terraform
+    if: success()   # ✅ Only run if Terraform job succeeds
     runs-on: ubuntu-latest
     env:
       VM_ADMIN_PASSWORD: ${{ secrets.VM_ADMIN_PASSWORD }}
