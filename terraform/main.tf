@@ -151,9 +151,6 @@ resource "azurerm_windows_virtual_machine" "ws01" {
   }
 }
 
-# ───────────────────────────────────────────────
-# 🔧 Corrected DC01 WinRM Extension
-# ───────────────────────────────────────────────
 resource "azurerm_virtual_machine_extension" "dc01_winrm_ext" {
   name                 = "enable-winrm-dc01"
   virtual_machine_id   = azurerm_windows_virtual_machine.dc01.id
@@ -162,13 +159,10 @@ resource "azurerm_virtual_machine_extension" "dc01_winrm_ext" {
   type_handler_version = "1.10"
 
   settings = jsonencode({
-    commandToExecute = "powershell.exe -Command \"Enable-PSRemoting -Force; Set-Item -Path WSMan:\\localhost\\Service\\AllowUnencrypted -Value \$true; Set-Item -Path WSMan:\\localhost\\Service\\Auth\\Basic -Value \$true; New-NetFirewallRule -DisplayName 'Allow-WinRM' -Direction Inbound -LocalPort 5985 -Protocol TCP -Action Allow -Enabled True; New-NetFirewallRule -DisplayName 'Allow-HTTP' -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow -Enabled True; New-NetFirewallRule -Name 'Allow-ICMPv4-In' -Protocol ICMPv4 -IcmpType Any -Action Allow -Direction Inbound -Enabled True\""
+    commandToExecute = "powershell.exe -Command \"Enable-PSRemoting -Force; Set-Item -Path WSMan:\\localhost\\Service\\AllowUnencrypted -Value $true; Set-Item -Path WSMan:\\localhost\\Service\\Auth\\Basic -Value $true; New-NetFirewallRule -DisplayName 'Allow-WinRM' -Direction Inbound -LocalPort 5985 -Protocol TCP -Action Allow -Enabled True; New-NetFirewallRule -DisplayName 'Allow-HTTP' -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow -Enabled True; New-NetFirewallRule -Name 'Allow-ICMPv4-In' -Protocol ICMPv4 -IcmpType Any -Action Allow -Direction Inbound -Enabled True\""
   })
 }
 
-# ───────────────────────────────────────────────
-# 🔧 Corrected WS01 WinRM Extension
-# ───────────────────────────────────────────────
 resource "azurerm_virtual_machine_extension" "ws01_winrm_ext" {
   name                 = "enable-winrm-ws01"
   virtual_machine_id   = azurerm_windows_virtual_machine.ws01.id
@@ -177,6 +171,6 @@ resource "azurerm_virtual_machine_extension" "ws01_winrm_ext" {
   type_handler_version = "1.10"
 
   settings = jsonencode({
-    commandToExecute = "powershell.exe -Command \"Enable-PSRemoting -Force; Set-Item -Path WSMan:\\localhost\\Service\\AllowUnencrypted -Value \$true; Set-Item -Path WSMan:\\localhost\\Service\\Auth\\Basic -Value \$true; New-NetFirewallRule -DisplayName 'Allow-WinRM' -Direction Inbound -LocalPort 5985 -Protocol TCP -Action Allow -Enabled True; New-NetFirewallRule -DisplayName 'Allow-HTTP' -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow -Enabled True; New-NetFirewallRule -Name 'Allow-ICMPv4-In' -Protocol ICMPv4 -IcmpType Any -Action Allow -Direction Inbound -Enabled True\""
+    commandToExecute = "powershell.exe -Command \"Enable-PSRemoting -Force; Set-Item -Path WSMan:\\localhost\\Service\\AllowUnencrypted -Value $true; Set-Item -Path WSMan:\\localhost\\Service\\Auth\\Basic -Value $true; New-NetFirewallRule -DisplayName 'Allow-WinRM' -Direction Inbound -LocalPort 5985 -Protocol TCP -Action Allow -Enabled True; New-NetFirewallRule -DisplayName 'Allow-HTTP' -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow -Enabled True; New-NetFirewallRule -Name 'Allow-ICMPv4-In' -Protocol ICMPv4 -IcmpType Any -Action Allow -Direction Inbound -Enabled True\""
   })
 }
