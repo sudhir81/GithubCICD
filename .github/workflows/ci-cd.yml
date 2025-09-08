@@ -14,6 +14,7 @@ jobs:
       ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
       ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
       VM_ADMIN_PASSWORD: ${{ secrets.VM_ADMIN_PASSWORD }}
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -37,8 +38,8 @@ jobs:
             -backend-config="key=prod.tfstate"
 
       - name: Terraform Plan
-        run: terraform -chdir=terraform apply -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}" -auto-approve tfplan
-          
+        run: terraform -chdir=terraform plan -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}"
+
       - name: Terraform Apply
         run: terraform -chdir=terraform apply -auto-approve -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}"
 
@@ -56,6 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VM_ADMIN_PASSWORD: ${{ secrets.VM_ADMIN_PASSWORD }}
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -90,7 +92,6 @@ jobs:
           ansible_winrm_transport=basic
           ansible_port=5985
           EOF
-          ls -l ansible
           cat ansible/inventory.ini
 
       - name: Run DC playbook
