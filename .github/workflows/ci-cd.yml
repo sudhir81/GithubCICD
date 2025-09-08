@@ -20,10 +20,8 @@ env:
   TF_BACKEND_STORAGE_ACCOUNT_NAME: ${{ secrets.AZURE_BACKEND_STORAGE }}
   TF_BACKEND_CONTAINER_NAME: ${{ secrets.AZURE_BACKEND_CONTAINER }}
 
-  # Terraform variables (auto-detected)
-  TF_VAR_vm_admin_password: ${{ secrets.VM_ADMIN_PASSWORD }}
-  TF_VAR_location: eastus
-  TF_VAR_vm_size: Standard_B2ms
+  # Custom secrets
+  VM_ADMIN_PASSWORD: ${{ secrets.VM_ADMIN_PASSWORD }}
 
 jobs:
   terraform:
@@ -72,7 +70,10 @@ jobs:
         run: terraform validate
 
       - name: Terraform Plan
-        run: terraform plan -out=tfplan
+        run: terraform plan -out=tfplan \
+          -var "vm_admin_password=$VM_ADMIN_PASSWORD" \
+          -var "location=eastus" \
+          -var "vm_size=Standard_B2ms"
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
