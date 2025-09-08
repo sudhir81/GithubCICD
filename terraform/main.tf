@@ -237,14 +237,3 @@ SETTINGS
     azurerm_windows_virtual_machine.ws01
   ]
 }
-
-# -------------------------------
-# Outputs
-# -------------------------------
-output "dc01_public_ip" {
-  value = azurerm_public_ip.dc01_pip.ip_address
-}
-
-output "ws01_public_ip" {
-  value = azurerm_public_ip.ws01_pip.ip_address
-}
