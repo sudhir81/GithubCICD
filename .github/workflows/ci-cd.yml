@@ -37,22 +37,45 @@ jobs:
             -backend-config="container_name=${{ secrets.AZURE_BACKEND_CONTAINER }}" \
             -backend-config="key=prod.tfstate"
 
-      # 🔑 Detect and auto-unlock stale Terraform state lock
-      - name: Force Unlock if locked
+      # 🔑 Plan with auto-unlock + retry
+      - name: Terraform Plan (with auto-unlock)
         run: |
-          LOCK_ID=$(terraform -chdir=terraform plan -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}" 2>&1 | grep "ID:" | awk '{print $2}' || true)
-          if [ -n "$LOCK_ID" ]; then
-            echo "Found lock ID: $LOCK_ID"
-            terraform -chdir=terraform force-unlock -force $LOCK_ID || true
-          else
-            echo "No lock detected"
+          set +e
+          terraform -chdir=terraform plan -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}"
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -ne 0 ]; then
+            LOCK_ID=$(terraform -chdir=terraform plan -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}" 2>&1 | grep "ID:" | awk '{print $2}' || true)
+            if [ -n "$LOCK_ID" ]; then
+              echo "Found lock ID: $LOCK_ID — unlocking..."
+              terraform -chdir=terraform force-unlock -force $LOCK_ID || true
+              echo "Retrying terraform plan..."
+              terraform -chdir=terraform plan -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}"
+            else
+              echo "No lock ID detected, failing..."
+              exit $EXIT_CODE
+            fi
           fi
+          set -e
 
-      - name: Terraform Plan
-        run: terraform -chdir=terraform plan -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}"
-
-      - name: Terraform Apply
-        run: terraform -chdir=terraform apply -auto-approve -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}"
+      # 🔑 Apply with auto-unlock + retry
+      - name: Terraform Apply (with auto-unlock)
+        run: |
+          set +e
+          terraform -chdir=terraform apply -auto-approve -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}"
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -ne 0 ]; then
+            LOCK_ID=$(terraform -chdir=terraform apply -auto-approve -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}" 2>&1 | grep "ID:" | awk '{print $2}' || true)
+            if [ -n "$LOCK_ID" ]; then
+              echo "Found lock ID: $LOCK_ID — unlocking..."
+              terraform -chdir=terraform force-unlock -force $LOCK_ID || true
+              echo "Retrying terraform apply..."
+              terraform -chdir=terraform apply -auto-approve -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}"
+            else
+              echo "No lock ID detected, failing..."
+              exit $EXIT_CODE
+            fi
+          fi
+          set -e
 
       - name: Save TF outputs
         run: terraform -chdir=terraform output -json > tf_outputs.json
