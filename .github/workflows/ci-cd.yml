@@ -37,16 +37,15 @@ jobs:
             -backend-config="container_name=${{ secrets.AZURE_BACKEND_CONTAINER }}" \
             -backend-config="key=prod.tfstate"
 
-      # 🔑 Auto unlock step
-      - name: Force Unlock (ignore errors if not locked)
-        run: |
-          terraform -chdir=terraform force-unlock -force f3619496-cd08-f155-1f93-d02cc6bd4be8 || echo "No lock to clear"
+      # 🔑 Ensure no stale lock blocks the run
+      - name: Force Unlock if needed
+        run: terraform -chdir=terraform force-unlock -force $(date +%s) || echo "No lock to clear"
 
       - name: Terraform Plan
-        run: terraform -chdir=terraform plan -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}"
+        run: terraform -chdir=terraform plan -lock-timeout=300s -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}"
 
       - name: Terraform Apply
-        run: terraform -chdir=terraform apply -auto-approve -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}"
+        run: terraform -chdir=terraform apply -lock-timeout=300s -auto-approve -var="vm_admin_password=${{ secrets.VM_ADMIN_PASSWORD }}"
 
       - name: Save TF outputs
         run: terraform -chdir=terraform output -json > tf_outputs.json
