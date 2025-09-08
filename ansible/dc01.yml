@@ -1,14 +1,14 @@
-- name: Configure DC01 - Install ADDS and DNS
+- name: Configure DC01 - install ADDS feature
   hosts: dc
   gather_facts: no
   tasks:
-    - name: Install AD-Domain-Services feature
+    - name: Install AD-Domain-Services feature (ADDS)
       win_feature:
         name: AD-Domain-Services
         state: present
         include_management_tools: yes
 
-    - name: Install DNS feature
+    - name: Install DNS Server role
       win_feature:
         name: DNS
         state: present

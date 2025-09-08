@@ -1,30 +1,45 @@
-# Terraform + Ansible CI/CD Workspace
+# Terraform + Ansible Sandbox (WS2019) - CI/CD learning workspace
 
-This workspace provisions two Windows Server 2019 VMs on Azure and configures them with Ansible using GitHub Actions CI/CD.
+This workspace creates two Windows Server 2019 VMs (DC01 and WS01) in Azure and configures them using Ansible via GitHub Actions.
 
-## Files
-- terraform/: Terraform configuration (RG, VNet, Subnet, NSG, Public IPs, NICs, Windows VMs)
-- ansible/: Playbooks and inventory template
-- .github/workflows/ci-cd.yml: CI/CD pipeline
+## What this creates
+- Resource Group (default: `rg-sandbox`)
+- Virtual Network + Subnet
+- Network Security Group allowing RDP (3389), WinRM (5985) from `allowed_cidr` and HTTP (80) from the internet
+- Public IPs (Standard SKU) assigned to both VMs
+- Two Windows 2019 VMs: `DC01` and `WS01`
+- CustomScriptExtension on each VM to enable WinRM and firewall rules so Ansible can connect
+
+## Ansible configuration
+- `ansible/dc01.yml` - installs AD-Domain-Services and DNS feature on DC01
+- `ansible/ws01.yml` - installs IIS + management tools and creates a test `index.html` showing the host IP
 
 ## Before you run
-1. Create Azure Storage backend (resource group, storage account, container) for Terraform state.
-2. Add GitHub Secrets (Repository → Settings → Secrets and variables → Actions):
-   - ARM_CLIENT_ID         (your service principal client id)
-   - ARM_CLIENT_SECRET     (your service principal secret)
-   - ARM_SUBSCRIPTION_ID   (your subscription id)
-   - ARM_TENANT_ID         (your tenant id)
-   - VM_ADMIN_PASSWORD     (password for Windows VMs)
-   - AZURE_BACKEND_RG      (resource group that contains storage account)
-   - AZURE_BACKEND_STORAGE (storage account name)
-   - AZURE_BACKEND_CONTAINER (container name)
+1. Create an Azure Service Principal (or use existing) and note: clientId, clientSecret, subscriptionId, tenantId.
+2. Create a storage account + container for Terraform state (or use existing):
+   - Resource Group for backend (example): `rg-terraform-state`
+   - Storage account name (example): `jumbodatastr1981`
+   - Container name (example): `tfstate`
 
-## How the pipeline works
-1. Terraform job: initializes (with backend from secrets), plans and applies.
-2. Outputs are saved and uploaded as artifact.
-3. Ansible job: downloads outputs, creates inventory.ini, runs playbooks against the VMs.
+3. Push this repo to GitHub **main** branch.
 
-## Notes
-- Set `variable "allowed_cidr"` in terraform/variables.tf to your office/home IP (CIDR) for production to restrict RDP/WinRM.
-- The pipeline uses WinRM (5985) for Ansible to connect to Windows VMs; you may need to configure WinRM and Firewall on the VMs (terraform allows NSG rule, but Windows firewall must allow it).
+4. Add GitHub Secrets (Repository → Settings → Secrets and variables → Actions):
+   - `ARM_CLIENT_ID`         (service principal clientId)
+   - `ARM_CLIENT_SECRET`     (service principal secret)
+   - `ARM_SUBSCRIPTION_ID`   (subscription id)
+   - `ARM_TENANT_ID`         (tenant id)
+   - `VM_ADMIN_PASSWORD`     (VM local admin password to be used by Ansible)
+   - `AZURE_BACKEND_RG`      (resource group that contains the storage account for tfstate)
+   - `AZURE_BACKEND_STORAGE` (storage account name)
+   - `AZURE_BACKEND_CONTAINER` (container name)
 
+## How to run (high level)
+1. Push to `main` on GitHub. The workflow `.github/workflows/ci-cd.yml` will:
+   - Run Terraform (init, plan, apply)
+   - Save outputs and upload artifact
+   - Run Ansible jobs to configure DC01 and WS01
+
+## Notes & security
+- `allowed_cidr` defaults to `0.0.0.0/0` for testing convenience. **Change to your office IP/32 before production**.
+- The Custom Script Extension configures WinRM (HTTP, unencrypted + Basic) for demo/testing only; for production use HTTPS + certificates and secure authentication methods.
+- Consider using Azure Key Vault / GitHub Encrypted Secrets and least privilege for Service Principal.

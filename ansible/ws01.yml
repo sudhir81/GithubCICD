@@ -1,11 +1,17 @@
 \
-- name: Configure WS01 - Install IIS and deploy test page
+- name: Configure WS01 - Install IIS and management features, create test page
   hosts: ws
   gather_facts: no
   tasks:
-    - name: Install IIS
+    - name: Install IIS (Web-Server)
       win_feature:
         name: Web-Server
+        state: present
+        include_management_tools: yes
+
+    - name: Install IIS Management Tools
+      win_feature:
+        name: Web-Mgmt-Tools
         state: present
         include_management_tools: yes
 
@@ -15,7 +21,7 @@
         start_mode: auto
         state: started
 
-    - name: Deploy test index.html
-      win_copy:
-        content: "<html><body><h1>Hello Testing Ansible from CI/CD</h1></body></html>"
+    - name: Create test index.html with host IP
+      win_template:
+        src: templates/index.html.j2
         dest: C:\\inetpub\\wwwroot\\index.html

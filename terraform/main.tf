@@ -1,24 +1,25 @@
+
 resource "azurerm_resource_group" "rg" {
   name     = var.resource_group_name
   location = var.location
 }
 
 resource "azurerm_virtual_network" "vnet" {
-  name                = "vnet-lab"
-  address_space       = ["10.0.0.0/16"]
+  name                = "vnet-sandbox"
+  address_space       = ["10.1.0.0/16"]
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
 }
 
 resource "azurerm_subnet" "subnet" {
-  name                 = "subnet-lab"
+  name                 = "snet-sandbox"
   resource_group_name  = azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["10.0.1.0/24"]
+  address_prefixes     = ["10.1.1.0/24"]
 }
 
 resource "azurerm_network_security_group" "nsg" {
-  name                = "nsg-lab"
+  name                = "nsg-sandbox"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
 
@@ -59,18 +60,23 @@ resource "azurerm_network_security_group" "nsg" {
   }
 }
 
+resource "azurerm_subnet_network_security_group_association" "snet_nsg" {
+  subnet_id                 = azurerm_subnet.subnet.id
+  network_security_group_id = azurerm_network_security_group.nsg.id
+}
+
 resource "azurerm_public_ip" "dc01_pip" {
   name                = "pip-dc01"
-  resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
   allocation_method   = "Static"
   sku                 = "Standard"
 }
 
 resource "azurerm_public_ip" "ws01_pip" {
   name                = "pip-ws01"
-  resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
   allocation_method   = "Static"
   sku                 = "Standard"
 }
@@ -81,7 +87,7 @@ resource "azurerm_network_interface" "dc01_nic" {
   resource_group_name = azurerm_resource_group.rg.name
 
   ip_configuration {
-    name                          = "internal"
+    name                          = "ipconfig1"
     subnet_id                     = azurerm_subnet.subnet.id
     private_ip_address_allocation = "Dynamic"
     public_ip_address_id          = azurerm_public_ip.dc01_pip.id
@@ -94,7 +100,7 @@ resource "azurerm_network_interface" "ws01_nic" {
   resource_group_name = azurerm_resource_group.rg.name
 
   ip_configuration {
-    name                          = "internal"
+    name                          = "ipconfig1"
     subnet_id                     = azurerm_subnet.subnet.id
     private_ip_address_allocation = "Dynamic"
     public_ip_address_id          = azurerm_public_ip.ws01_pip.id
@@ -105,7 +111,7 @@ resource "azurerm_windows_virtual_machine" "dc01" {
   name                  = "DC01"
   resource_group_name   = azurerm_resource_group.rg.name
   location              = azurerm_resource_group.rg.location
-  size                  = "Standard_B2s"
+  size                  = var.vm_size
   admin_username        = var.vm_admin_username
   admin_password        = var.vm_admin_password
   network_interface_ids = [azurerm_network_interface.dc01_nic.id]
@@ -127,7 +133,7 @@ resource "azurerm_windows_virtual_machine" "ws01" {
   name                  = "WS01"
   resource_group_name   = azurerm_resource_group.rg.name
   location              = azurerm_resource_group.rg.location
-  size                  = "Standard_B2s"
+  size                  = var.vm_size
   admin_username        = var.vm_admin_username
   admin_password        = var.vm_admin_password
   network_interface_ids = [azurerm_network_interface.ws01_nic.id]
@@ -143,4 +149,34 @@ resource "azurerm_windows_virtual_machine" "ws01" {
     sku       = "2019-Datacenter"
     version   = "latest"
   }
+}
+
+# Custom Script Extension to enable WinRM and firewall rules on DC01
+resource "azurerm_virtual_machine_extension" "dc01_winrm_ext" {
+  name                 = "enable-winrm-dc01"
+  virtual_machine_id   = azurerm_windows_virtual_machine.dc01.id
+  publisher            = "Microsoft.Compute"
+  type                 = "CustomScriptExtension"
+  type_handler_version = "1.10"
+
+  settings = <<SETTINGS
+    {
+      "commandToExecute": "powershell -NoProfile -ExecutionPolicy Unrestricted -Command \\"Set-Item -Path WSMan:\\\\localhost\\\\Service\\\\AllowUnencrypted -Value $true; Set-Item -Path WSMan:\\\\localhost\\\\Service\\\\Auth\\\\Basic -Value $true; winrm quickconfig -q; New-NetFirewallRule -DisplayName 'Allow-WinRM' -Direction Inbound -LocalPort 5985 -Protocol TCP -Action Allow -Enabled True; New-NetFirewallRule -DisplayName 'Allow-HTTP' -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow -Enabled True; New-NetFirewallRule -Name 'Allow-ICMPv4-In' -Protocol ICMPv4 -IcmpType Any -Action Allow -Direction Inbound -Enabled True; \\""
+    }
+SETTINGS
+}
+
+# Custom Script Extension to enable WinRM and firewall rules on WS01
+resource "azurerm_virtual_machine_extension" "ws01_winrm_ext" {
+  name                 = "enable-winrm-ws01"
+  virtual_machine_id   = azurerm_windows_virtual_machine.ws01.id
+  publisher            = "Microsoft.Compute"
+  type                 = "CustomScriptExtension"
+  type_handler_version = "1.10"
+
+  settings = <<SETTINGS
+    {
+      "commandToExecute": "powershell -NoProfile -ExecutionPolicy Unrestricted -Command \\"Set-Item -Path WSMan:\\\\localhost\\\\Service\\\\AllowUnencrypted -Value $true; Set-Item -Path WSMan:\\\\localhost\\\\Service\\\\Auth\\\\Basic -Value $true; winrm quickconfig -q; New-NetFirewallRule -DisplayName 'Allow-WinRM' -Direction Inbound -LocalPort 5985 -Protocol TCP -Action Allow -Enabled True; New-NetFirewallRule -DisplayName 'Allow-HTTP' -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow -Enabled True; New-NetFirewallRule -Name 'Allow-ICMPv4-In' -Protocol ICMPv4 -IcmpType Any -Action Allow -Direction Inbound -Enabled True; \\""
+    }
+SETTINGS
 }

@@ -18,12 +18,23 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
+      - name: Login to Azure CLI
+        uses: azure/login@v1
+        with:
+          creds: >-
+            {
+              "clientId": "${{ secrets.ARM_CLIENT_ID }}",
+              "clientSecret": "${{ secrets.ARM_CLIENT_SECRET }}",
+              "subscriptionId": "${{ secrets.ARM_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ secrets.ARM_TENANT_ID }}"
+            }
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.7
 
-      - name: Terraform Init (non-interactive backend config)
+      - name: Terraform Init (backend from secrets)
         run: |
           terraform -chdir=terraform init             -backend-config="resource_group_name=${{ secrets.AZURE_BACKEND_RG }}"             -backend-config="storage_account_name=${{ secrets.AZURE_BACKEND_STORAGE }}"             -backend-config="container_name=${{ secrets.AZURE_BACKEND_CONTAINER }}"             -backend-config="key=prod.tfstate"
 
