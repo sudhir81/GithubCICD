@@ -70,14 +70,26 @@ jobs:
         run: terraform validate
 
       - name: Terraform Plan
-        run: terraform plan -out=tfplan \
-          -var "vm_admin_password=$VM_ADMIN_PASSWORD" \
-          -var "location=eastus" \
-          -var "vm_size=Standard_B2ms"
+        run: |
+          terraform plan -out=tfplan \
+            -var "vm_admin_password=$VM_ADMIN_PASSWORD" \
+            -var "location=eastus" \
+            -var "vm_size=Standard_B2ms"
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: terraform apply -auto-approve tfplan
+
+      - name: Export Terraform Outputs
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: terraform output -json > outputs.json
+
+      - name: Upload Terraform Outputs
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tf-outputs
+          path: ./terraform/outputs.json
 
   ansible:
     name: Run Ansible Playbooks
@@ -92,14 +104,33 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Download Terraform Outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: tf-outputs
+          path: ./ansible
+
       - name: Install Ansible & Azure Collection
         run: |
           sudo apt-get update
-          sudo apt-get install -y ansible python3-pip
+          sudo apt-get install -y ansible python3-jmespath python3-pip
           pip3 install ansible[azure]
 
+      - name: Generate Dynamic Inventory
+        run: |
+          python3 <<'EOF'
+          import json
+          data = json.load(open("outputs.json"))
+          with open("inventory.ini", "w") as f:
+              if "dc01_ip" in data:
+                  f.write(f"[dc01]\n{data['dc01_ip']['value']}\n\n")
+              if "ws01_ip" in data:
+                  f.write(f"[ws01]\n{data['ws01_ip']['value']}\n")
+          EOF
+          cat inventory.ini
+
       - name: Run Ansible Playbook (dc01)
-        run: ansible-playbook -i inventory.tpl dc01.yml
+        run: ansible-playbook -i inventory.ini dc01.yml
 
       - name: Run Ansible Playbook (ws01)
-        run: ansible-playbook -i inventory.tpl ws01.yml
+        run: ansible-playbook -i inventory.ini ws01.yml
