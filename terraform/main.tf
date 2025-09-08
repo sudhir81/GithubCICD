@@ -161,7 +161,9 @@ resource "azurerm_virtual_machine_extension" "dc01_winrm_ext" {
 
   settings = <<SETTINGS
     {
-      "commandToExecute": "powershell -NoProfile -ExecutionPolicy Unrestricted -Command \\"Set-Item -Path WSMan:\\\\localhost\\\\Service\\\\AllowUnencrypted -Value $true; Set-Item -Path WSMan:\\\\localhost\\\\Service\\\\Auth\\\\Basic -Value $true; winrm quickconfig -q; New-NetFirewallRule -DisplayName 'Allow-WinRM' -Direction Inbound -LocalPort 5985 -Protocol TCP -Action Allow -Enabled True; New-NetFirewallRule -DisplayName 'Allow-HTTP' -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow -Enabled True; New-NetFirewallRule -Name 'Allow-ICMPv4-In' -Protocol ICMPv4 -IcmpType Any -Action Allow -Direction Inbound -Enabled True; \\""
+      "New-NetFirewallRule -DisplayName "Allow-HTTP" -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow -Enabled True
+New-NetFirewallRule -Name "Allow-ICMPv4-In" -Protocol ICMPv4 -IcmpType Any -Action Allow -Direction Inbound -Enabled True
+
     }
 SETTINGS
 }
@@ -176,7 +178,10 @@ resource "azurerm_virtual_machine_extension" "ws01_winrm_ext" {
 
   settings = <<SETTINGS
     {
-      "commandToExecute": "powershell -NoProfile -ExecutionPolicy Unrestricted -Command \\"Set-Item -Path WSMan:\\\\localhost\\\\Service\\\\AllowUnencrypted -Value $true; Set-Item -Path WSMan:\\\\localhost\\\\Service\\\\Auth\\\\Basic -Value $true; winrm quickconfig -q; New-NetFirewallRule -DisplayName 'Allow-WinRM' -Direction Inbound -LocalPort 5985 -Protocol TCP -Action Allow -Enabled True; New-NetFirewallRule -DisplayName 'Allow-HTTP' -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow -Enabled True; New-NetFirewallRule -Name 'Allow-ICMPv4-In' -Protocol ICMPv4 -IcmpType Any -Action Allow -Direction Inbound -Enabled True; \\""
+New-NetFirewallRule -DisplayName "Allow-HTTP" -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow -Enabled True
+New-NetFirewallRule -Name "Allow-ICMPv4-In" -Protocol ICMPv4 -IcmpType Any -Action Allow -Direction Inbound -Enabled True
+
+
     }
 SETTINGS
 }
