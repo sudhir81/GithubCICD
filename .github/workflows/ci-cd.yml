@@ -9,6 +9,10 @@ jobs:
   terraform:
     runs-on: ubuntu-latest
     env:
+      ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
+      ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
+      ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
+      ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
       VM_ADMIN_PASSWORD: ${{ secrets.VM_ADMIN_PASSWORD }}
     steps:
       - name: Checkout repo
@@ -56,11 +60,6 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Login to Azure CLI (optional but recommended)
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
       - name: Download TF outputs
         uses: actions/download-artifact@v3
         with:
@@ -77,7 +76,6 @@ jobs:
         run: |
           DCIP=$(jq -r .dc01_public_ip.value ansible/tf_outputs.json)
           WSIP=$(jq -r .ws01_public_ip.value ansible/tf_outputs.json)
-
           cat > ansible/inventory.ini <<EOF
           [dc]
           DC01 ansible_host=${DCIP}
@@ -92,8 +90,7 @@ jobs:
           ansible_winrm_transport=basic
           ansible_port=5985
           EOF
-
-          echo "Generated Ansible inventory:"
+          ls -l ansible
           cat ansible/inventory.ini
 
       - name: Run DC playbook
